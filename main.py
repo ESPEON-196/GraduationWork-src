@@ -5,7 +5,7 @@ import replacement_new
 import allocation_new
 from my_module import netread_part
 from my_module import calculator
-import topologymaking
+from my_module import topologymaking
 import time
 
 # パラメータ設定
@@ -43,51 +43,42 @@ if __name__ == '__main__':
     # print(d)
 '''
 
-'''
-f1 = open('new1.txt', 'w')
-f2 = open('new2.txt', 'w')
-f3 = open('new3.txt', 'w')
-f4 = open('new4.txt', 'w')
-f5 = open('new5.txt', 'w')
-
-f = open('rhovar1.dat', 'w')
-'''
-
-f1 = open('Iteration1.dat', 'w')
-f2 = open('Iteration2.dat', 'w')
+f1 = open('Wmax.txt', 'w')
+f2 = open('Dmax.txt', 'w')
+f3 = open('Davg.txt', 'w')
+f4 = open('Pmax.txt', 'w')
+f5 = open('rhobar.txt', 'w')
 
 # ここからシミュレーション開始
 time_sta = time.time()
-for Dis_avg in range(100, 101, 20):
-    '''
-    f1.writelines(['Distance average:', str(Dis_avg), '\n'])
-    f2.writelines(['Distance average:', str(Dis_avg), '\n'])
-    f3.writelines(['Distance average:', str(Dis_avg), '\n'])
-    f4.writelines(['Distance average:', str(Dis_avg), '\n'])
-    f5.writelines(['Distance average:', str(Dis_avg), '\n'])
-    '''
-    for lg in range(12, 13):  #lamb_avg:平均の到着率
-        lamb_avg = lg * 1.5
-        rho = lg / 30
-        Davg = np.zeros(SIM)
-        Pavg = np.zeros(SIM)
-        for simulation in range(SIM):
-            
-            d = topologymaking.topologymake2(N, Dis_avg)
-            #print(d)
+for pattern in range(2): # 収束の様子を2種類調べないならrange(1)
+    for Dis_avg in range(20, 101, 80):
+        f1.writelines(['Distance average:', str(Dis_avg), '\n'])
+        f2.writelines(['Distance average:', str(Dis_avg), '\n'])
+        f3.writelines(['Distance average:', str(Dis_avg), '\n'])
+        f4.writelines(['Distance average:', str(Dis_avg), '\n'])
+        f5.writelines(['Distance average:', str(Dis_avg), '\n'])
+        for lg in range(16, 25):  #lamb_avg:平均の到着率
+            lamb_avg = lg * 0.75
+            rho = lamb_avg / 30
+            Davg = np.zeros(SIM)
+            Pavg = np.zeros(SIM)
+            for simulation in range(SIM):
+                
+                d = topologymaking.topologymake2(N, Dis_avg)
+                #print(d)
 
-            # 各ノードの到着率を乱数で用意
-            while True:
-                lamb = np.random.poisson(lamb_avg, N)  
-                if np.all(lamb > 0):
-                    break
-            lamb = lamb.astype(float)
-            lamb /= (np.sum(lamb))
-            lamb *= lamb_avg * N  # ノードごとの到着率
-            #for i in range(N): 
+                # 各ノードの到着率を乱数で用意
+                while True:
+                    lamb = np.random.poisson(lamb_avg, N)  
+                    if np.all(lamb > 0):
+                        break
+                lamb = lamb.astype(float)
+                lamb /= (np.sum(lamb))
+                lamb *= lamb_avg * N  # ノードごとの到着率
+                #for i in range(N): 
                 #lamb[i] = np.random.normal(lamb_avg, np.sqrt(lamb_var))
 
-            for pattern in range(2): # 収束の様子を2種類調べないならrange(1)
                 # 変数初期化
                 Eta = 0.0                      # 各エッジサーバの負荷の最大値(これの最小化を目指す)
                 Eta_last = np.inf              # Etaの値保持用
@@ -99,6 +90,8 @@ for Dis_avg in range(100, 101, 20):
                 Xc = np.zeros(N, dtype=int)    # ノードiに置かれたエッジサーバのプロセッサ数
                 Xm = np.zeros(N, dtype=int)    # ノードiに置かれたエッジサーバの処理率
                 count = 0
+
+                # ここから提案手法プログラム
                 
                 # エッジサーバ仮配置 (到着率が多い順にK個)
                 for i in range(K):
@@ -110,19 +103,15 @@ for Dis_avg in range(100, 101, 20):
                     S[E[i]] = 1
                     Xc[E[i]] = C[i]
                     Xm[E[i]] = MYU[i]
-                
-                if  pattern == 1:
-                    T = 100
-                    T_f = 0
-
-                elif pattern == 0:
-                    T = 3.0
-                    T_f = 0.01
 
                 # ループ開始
                 while T > T_f:
                     # 各ノードのエッジサーバ割り当て決定
-                    y = allocation_new.allocation_new(S, N, K, lamb, d, Xc, Xm)
+                    if pattern == 0:
+                        y = allocation_new.allocation_new_ver1(S, N, K, lamb, d, Xc, Xm)
+
+                    elif pattern == 1:
+                        y = allocation_new.allocation_new_ver2(S, N, K, lamb, d, Xc, Xm)
 
                     #どのエッジサーバに割り当てられたか確認用
                     for i in range(N):
@@ -148,59 +137,37 @@ for Dis_avg in range(100, 101, 20):
                     #遅延の最大値
                     Eta = max(Delay)
 
-                    if pattern == 1:
-                        if Eta < Eta_last:
-                            #Eta, S, yをそれぞれ保持
+                    #シミュレーテッドアニーリング
+                    if Eta < Eta_last:
+                        #Eta, S, yをそれぞれ保持
+                        Eta_last = Eta
+                        S_last = S.copy()
+                        Xc_last = Xc.copy()
+                        Xm_last = Xm.copy()
+                        y_last = y.copy()
+
+                    else:
+                        delta = Eta - Eta_last
+                        P = min(1, np.exp(-delta/T))
+                        judge = np.random.choice([True, False], p=[P, (1-P)])
+                        print(P)
+                        print(judge)
+                        if judge:
                             Eta_last = Eta
                             S_last = S.copy()
                             Xc_last = Xc.copy()
                             Xm_last = Xm.copy()
                             y_last = y.copy()
-                        
                         else:
                             S = S_last.copy()
                             Xc = Xc_last.copy()
                             Xm = Xm_last.copy()
                             y = y_last.copy()
-                            T -= 1
-                        count += 1
-                        f1.writelines([str(count), ' ', str(Eta_last), '\n'])
+                    T *= gamma
+                    count += 1
 
-
-                    elif pattern == 0:
-                        if Eta < Eta_last:
-                            #Eta, S, yをそれぞれ保持
-                            Eta_last = Eta
-                            S_last = S.copy()
-                            Xc_last = Xc.copy()
-                            Xm_last = Xm.copy()
-                            y_last = y.copy()
-
-                        else:
-                            #シミュレーテッドアニーリング
-                            delta = Eta - Eta_last
-                            P = min(1, np.exp(-delta/T))
-                            judge = np.random.choice([True, False], p=[P, (1-P)])
-                            print(P)
-                            print(judge)
-                            if judge:
-                                Eta_last = Eta
-                                S_last = S.copy()
-                                Xc_last = Xc.copy()
-                                Xm_last = Xm.copy()
-                                y_last = y.copy()
-                            else:
-                                S = S_last.copy()
-                                Xc = Xc_last.copy()
-                                Xm = Xm_last.copy()
-                                y = y_last.copy()
-                        T *= gamma
-                        count += 1
-                        f2.writelines([str(count), ' ', str(Eta_last), '\n'])
-                    
 
                 lambofcluster = calculator.lambdaofcluster(lamb, N, y)  # クラスタの到着率の合計
-                # pofcluster = calculator.lossofcluster(lambofcluster, MYU, N, C)  # クラスタの呼損率
                 Wofcluster = calculator.SystemTime(lambofcluster, Xm, N, Xc) # クラスタの平均系内滞在時間
                 print('simuration', simulation + 1)
 
@@ -242,48 +209,43 @@ for Dis_avg in range(100, 101, 20):
                 rho_var[simulation] = rho_varsum / K
                 #W_var[simulation] = W_varsum / K
                 
-                # print('合計呼損', loss_sum[simulation])
                 print('最大系内滞在時間[ms]:', (max(Wofcluster) * 1000))
                 print('最大遅延時間[ms]:', max(Delay))
                 print('平均遅延時間[ms]:', Davg[simulation])
                 print()   
             
         
-        # loss_sum_avg = np.sum(loss_sum) / SIM
-        rho_avg_avg = np.sum(rho_avg) / SIM
-        rho_var_avg = np.sum(rho_var) / SIM
-        #W_var_avg = np.sum(W_var) / SIM
-        Wmax_avg = np.sum(Wmax) / SIM
-        D_avg = np.sum(Dmax) / SIM
-        Davg_avg = np.sum(Davg) / SIM
-        P_avg = np.sum(Pmax) / SIM
-        Pavg_avg = np.sum(Pavg) / SIM
+            # loss_sum_avg = np.sum(loss_sum) / SIM
+            rho_avg_avg = np.sum(rho_avg) / SIM
+            rho_var_avg = np.sum(rho_var) / SIM
+            #W_var_avg = np.sum(W_var) / SIM
+            Wmax_avg = np.sum(Wmax) / SIM
+            Dmax_avg = np.sum(Dmax) / SIM
+            Davg_avg = np.sum(Davg) / SIM
+            Pmax_avg = np.sum(Pmax) / SIM
+            Pavg_avg = np.sum(Pavg) / SIM
 
-        # print('the average of loss', SIM, 'simulations is...', loss_sum_avg)
-        print('the average of rho_avg', SIM, 'simulations is...', rho_avg_avg)
-        print('the average of rho_var', SIM, 'simulations is...', rho_var_avg)
-        #print('the average of W_var', SIM, 'simulations is...', W_var_avg)
-        print('the average of max wait delay[ms]', SIM, 'simulations is...', Wmax_avg)
-        print('the average of max prop delay[ms]', SIM, 'simulations is...', P_avg)
-        print('the average of avg delay', SIM, 'simulations is...', Pavg_avg)
-        print('the average of max delay[ms]', SIM, 'simulations is...', D_avg)
-        print('the average of avg delay', SIM, 'simulations is...', Davg_avg)
+            # print('the average of loss', SIM, 'simulations is...', loss_sum_avg)
+            print('the average of rho_avg', SIM, 'simulations is...', rho_avg_avg)
+            print('the average of rho_var', SIM, 'simulations is...', rho_var_avg)
+            print('the average of max wait delay[ms]', SIM, 'simulations is...', Wmax_avg)
+            print('the average of max prop delay[ms]', SIM, 'simulations is...', Pmax_avg)
+            print('the average of avg delay', SIM, 'simulations is...', Pavg_avg)
+            print('the average of max delay[ms]', SIM, 'simulations is...', Dmax_avg)
+            print('the average of avg delay', SIM, 'simulations is...', Davg_avg)
 
-        '''
-        f.writelines([str(rho), ' ', str(rho_var_avg), '\n'])
+            
+            f1.writelines([str(rho), ' ', str(Wmax_avg), '\n'])
+            f2.writelines([str(rho), ' ', str(Dmax_avg), '\n'])
+            f3.writelines([str(rho), ' ', str(Davg_avg), '\n'])
+            f4.writelines([str(rho), ' ', str(Pmax_avg), '\n'])
+            f5.writelines([str(rho), ' ', str(rho_var_avg), '\n'])
 
-        
-        f1.writelines([str(rho), ' ', str(Wmax_avg), '\n'])
-        f2.writelines([str(rho), ' ', str(D_avg), '\n'])
-        f3.writelines([str(rho), ' ', str(Davg_avg), '\n'])
-        f4.writelines([str(rho), ' ', str(P_avg), '\n'])
-        f5.writelines([str(rho), ' ', str(Pavg_avg), '\n'])
-    
-    f1.write('\n')
-    f2.write('\n')
-    f3.write('\n')
-    f4.write('\n')
-    f5.write('\n')
+        f1.write('\n')
+        f2.write('\n')
+        f3.write('\n')
+        f4.write('\n')
+        f5.write('\n')
 
 f1.close()
 f2.close()
@@ -291,11 +253,6 @@ f3.close()
 f4.close()
 f5.close()
 
-    f.write('\n')
-f.close()
-'''
-f1.close()
-f2.close()
 time_end = time.time()
 tim = time_end - time_sta
 
