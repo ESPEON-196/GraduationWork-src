@@ -45,6 +45,7 @@ def allocation_new_ver0(S, N, K, lamb, d):
 
     return y
 
+# 現在mainではこれを使用
 def allocation_new_ver1(S, N, K, lamb, d, Xc, Xm):
     # [ノード番号, 到着率, パラメータ]の2次元配列を作成
     lamb_list = np.empty((N, 2))
@@ -80,20 +81,13 @@ def allocation_new_ver1(S, N, K, lamb, d, Xc, Xm):
                             y[int(lamb_list_sorted[i][0])] = j
                             MIN = L
             if y[int(lamb_list_sorted[i][0])] == 65536:
-                y[int(lamb_list_sorted[i][0])] = np.argmax(lambsup) # 分散重視ならこっち
-                '''
-                for j in range(N): # 閾値超えたとき、一番近いノードへやるならこっち
-                    if S[j] == 1:
-                        L = lamb_list_sorted[i][1] * d[int(lamb_list_sorted[i][0])][j]
-                        if L < MIN:
-                            y[int(lamb_list_sorted[i][0])] = j
-                            MIN = L
-                '''
+                y[int(lamb_list_sorted[i][0])] = np.argmax(lambsup)
             
             lambsup[y[int(lamb_list_sorted[i][0])]] -= lamb_list_sorted[i][1]
 
     return y
 
+# 検討中...
 def allocation_new_ver2(S, N, K, lamb, d, Xc, Xm):
     # [ノード番号, 到着率, パラメータ]の2次元配列を作成
     lamb_list = np.empty((N, 3))
@@ -108,7 +102,7 @@ def allocation_new_ver2(S, N, K, lamb, d, Xc, Xm):
                 if S[j] == 1:
                     alpha[Enum] = d[i][j]
             #lamb_list[i][2] = np.mean(alpha) - min(alpha)  
-            lamb_list[i][2] = max(alpha)  # こっちかな？
+            lamb_list[i][2] = max(alpha)  
 
 
     lamb_list_sorted = lamb_list[np.argsort(lamb_list[:, 2])[::-1]]  # 配列をパラメータが高い順にソート
